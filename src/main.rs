@@ -8,6 +8,7 @@ use std::path::PathBuf;
 // TODO : flag to ignore the .gitignore
 // TODO : flag to go through .git directory
 // TODO : flag to process only the file from the given path
+// TODO : flag to process only stdin
 // TODO : will need to ignore unknown file extensions
 
 fn main() -> std::io::Result<()> {
