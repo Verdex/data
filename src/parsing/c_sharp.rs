@@ -17,10 +17,7 @@ pub fn parse(input : &str) -> Result<Data, Box<str>> {
 
 pat!(parse_any<'a>: char => char = x => x);
 
-fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
-    // TODO unicode escape 
-    pat!(parse_at: char => () = '@' => { () });
-
+fn parse_word(input : &mut Chars) -> Result<Box<str>, ParseError> {
     fn parse_init_id_char(input : &mut Chars) -> Result<char, ParseError> {
         parser!(input => {
             any <= parse_any;
@@ -38,16 +35,33 @@ fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
     }
 
     parser!(input => {
-        at <= ? parse_at;
-        let at : Option<()> = at;
         init <= parse_init_id_char;
         rest <= * parse_rest_id_char;
         select {
             let mut rest = rest;
             rest.insert(0, init);
-            let s : Box<str> = rest.into_iter().collect::<String>().into();
-            Data::Cons { name: "id".into(), params: vec![Data::String(s)] }
+            rest.into_iter().collect::<String>().into()
         }
+    })
+}
+
+fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
+    // TODO unicode escape 
+    pat!(parse_at: char => () = '@' => { () });
+
+    parser!(input => {
+        at <= ? parse_at;
+        let at : Option<()> = at;
+        word <= parse_word;
+        select Data::Cons { name: "id".into(), params: vec![Data::String(word)] }
+    })
+}
+
+fn parse_keyword(input : &mut Chars) -> Result<Data, ParseError> {
+    parser!(input => {
+        word <= parse_word;
+        where KEYWORDS.iter().find(|x| ***x == *word).is_some();
+        select Data::Cons { name: "keyword".into(), params: vec![Data::String(word)] }
     })
 }
 
