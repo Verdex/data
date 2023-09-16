@@ -10,6 +10,11 @@ pub fn parse(input : &str) -> Result<Data, Box<str>> {
     Err("!".into())
 }
 
+// TODO keywords
+// TODO punctuation
+// TODO literals?
+// TODO <>
+
 pat!(parse_any<'a>: char => char = x => x);
 
 fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
