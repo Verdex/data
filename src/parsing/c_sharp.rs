@@ -5,9 +5,13 @@ use renounce::*;
 use structuralize::data::*;
 
 
-pub fn parse(input : &str) -> Result<Data, Box<str>> {
-
-    Err("!".into())
+pub fn parse(input : &str) -> Result<Data, Box<str>> { // TODO error type?
+    let mut input = input.chars();
+    let result = parse_c_sharp(&mut input);
+    match result {
+        Ok(data) => Ok(data),
+        _ => todo!(), 
+    }
 }
 
 macro_rules! opt {
