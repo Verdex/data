@@ -21,6 +21,20 @@ macro_rules! opt {
 fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
     opt!(parse_keyword => o_parse_keyword);
     opt!(parse_id => o_parse_id);
+    opt!(parse_block => o_parse_block);
+    opt!(parse_paren => o_parse_paren);
+    pat!(o_parse_dot: char => Option<Data> = '.' => { Some(Data::Symbol("dot".into()))});
+    pat!(o_parse_colon: char => Option<Data> = ':' => { Some(Data::Symbol("colon".into()))});
+    fn o_parse_arrow(input : &mut Chars) -> Result<Option<Data>, ParseError> {
+        pat!(parse_eq: char => () = '=' => { () });
+        pat!(parse_gt: char => () = '>' => { () });
+        parser!(input => {
+            _eq <= parse_eq;
+            _gt <= parse_gt;
+            select Some(Data::Symbol("arrow".into()))
+        })
+    }
+    
     fn ignore(input : &mut Chars) -> Result<Option<Data>, ParseError> {
         parser!(input => {
             _any <= parse_any;
@@ -30,6 +44,11 @@ fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
     fn parse_item(input : &mut Chars) -> Result<Option<Data>, ParseError> {
         alt!(input => o_parse_keyword
                     ; o_parse_id 
+                    ; o_parse_block
+                    ; o_parse_paren
+                    ; o_parse_dot
+                    ; o_parse_colon
+                    ; o_parse_arrow
                     ; ignore
                     )
     }
@@ -39,8 +58,6 @@ fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
         select Data::List(items.into_iter().filter_map(|x| x).collect())
     })
 }
-
-// TODO punctuation
 
 pat!(parse_any<'a>: char => char = x => x);
 
@@ -69,18 +86,6 @@ fn parse_word(input : &mut Chars) -> Result<Box<str>, ParseError> {
             rest.insert(0, init);
             rest.into_iter().collect::<String>().into()
         }
-    })
-}
-
-fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
-    // TODO unicode escape 
-    pat!(parse_at: char => () = '@' => { () });
-
-    parser!(input => {
-        at <= ? parse_at;
-        let at : Option<()> = at;
-        word <= parse_word;
-        select Data::Cons { name: "id".into(), params: vec![Data::String(word)] }
     })
 }
 
@@ -116,7 +121,7 @@ fn parse_generic(input : &mut Chars) -> Result<Vec<Data>, ParseError> {
     })
 }
 
-fn parse_type(input : &mut Chars) -> Result<Data, ParseError> {
+fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
     // TODO unicode escape 
     pat!(parse_at: char => () = '@' => { () });
 
@@ -131,8 +136,20 @@ fn parse_type(input : &mut Chars) -> Result<Data, ParseError> {
             if let Some(generic) = generic {
                 params.push(Data::Cons { name: "generic".into(), params: generic });
             }
-            Data::Cons { name: "type".into(), params }
+            Data::Cons { name: "id".into(), params: vec![Data::List(params)] }
         }
+    })
+}
+
+fn parse_paren(input : &mut Chars) -> Result<Data, ParseError> {
+    pat!(parse_l_paren: char => () = '(' => { () });
+    pat!(parse_r_paren: char => () = ')' => { () });
+
+    parser!(input => {
+        _l_paren <= parse_l_paren;
+        items <= * parse_c_sharp;
+        _r_paren <= parse_r_paren;
+        select Data::Cons { name: "paren".into(), params: items }
     })
 }
 
@@ -272,8 +289,9 @@ mod test {
         let input = "@_SomeInput786";
         let mut input = input.chars();
         let output = parse_id(&mut input).unwrap();
+        println!("{}", output);
 
-        let p : Pattern = "id(\"_SomeInput786\")".parse().unwrap();
+        let p : Pattern = "id([name(\"_SomeInput786\")])".parse().unwrap();
         let p = check_pattern(p).unwrap();
         let results = pattern_match(&p, &output);
 
