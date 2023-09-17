@@ -4,13 +4,14 @@ use std::str::Chars;
 use renounce::*;
 use structuralize::data::*;
 
+// TODO : use structualize to process result?
 
-pub fn parse(input : &str) -> Result<Data, Box<str>> { // TODO error type?
+pub fn parse(input : &str) -> Result<Data, ()> { // TODO error type?
     let mut input = input.chars();
     let result = parse_c_sharp(&mut input);
     match result {
         Ok(data) => Ok(data),
-        _ => todo!(), 
+        Err(_) => Err(()), 
     }
 }
 
