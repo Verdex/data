@@ -41,7 +41,6 @@ fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
 }
 
 // TODO punctuation
-// TODO <>
 
 pat!(parse_any<'a>: char => char = x => x);
 
@@ -125,7 +124,15 @@ fn parse_type(input : &mut Chars) -> Result<Data, ParseError> {
         at <= ? parse_at;
         let at : Option<()> = at;
         word <= parse_word;
-        select Data::Cons { name: "type".into(), params: vec![Data::String(word)] }
+        generic <= ? parse_generic;
+        select {
+            let mut params = vec![];
+            params.push(Data::Cons { name: "name".into(), params: vec![Data::String(word)] });
+            if let Some(generic) = generic {
+                params.push(Data::Cons { name: "generic".into(), params: generic });
+            }
+            Data::Cons { name: "type".into(), params }
+        }
     })
 }
 
