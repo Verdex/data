@@ -4,6 +4,7 @@ mod parsing;
 use std::fs;
 use std::path::PathBuf;
 
+use structuralize::data::*;
 // TODO : check to see if there's a .gitignore and then check that to see which files should be ignored
 // TODO : flag to ignore the .gitignore
 // TODO : flag to go through .git directory
@@ -12,21 +13,47 @@ use std::path::PathBuf;
 // TODO : will need to ignore unknown file extensions
 
 fn main() -> std::io::Result<()> {
-    let mut work : Vec<PathBuf> = vec![".".into()];
-    while work.len() != 0 {
+    let data = dir_data(".".into(), ".".into())?;
+    println!("{}", data);
+    Ok(())
+}
 
-        for x in fs::read_dir(work.pop().unwrap())? {
-            let x = x?;
-            let ft = x.file_type()?;
-            if ft.is_dir() {
-                work.push(x.path());
-            }
-            else if ft.is_file() {
-                println!("{:?}", x);
+fn dir_data( dir : PathBuf, dir_name : Box<str> ) -> std::io::Result<Data> {
+    let mut directory_data : Vec<Data> = vec![];
+    for item in fs::read_dir(dir)? {
+        let item = item?;
+
+        if item.file_name() == ".git" {
+            continue;
+        }
+
+        let ft = item.file_type()?;
+        if ft.is_dir() {
+            directory_data.push(dir_data(item.path(), item.file_name().into_string().unwrap().into())?);
+        }
+        else if ft.is_file() {
+            let path = item.path();
+            // TODO 
+            let name : Box<str> = item.file_name().into_string().unwrap().into();
+            if let Some(ext) = path.extension() {
+                if ext == ".cs" {
+                    let file_input = fs::read_to_string(path)?;
+                    let data = parsing::c_sharp::parse(&file_input).unwrap();
+                    directory_data.push(
+                        Data::Cons { name: "file".into()
+                                    , params: vec![Data::String(name), data] 
+                                    });
+                }
+                else {
+                    directory_data.push(
+                        Data::Cons { name: "file".into() 
+                                    , params: vec![Data::String(name), Data::Symbol("unsupported".into())]
+                                    });
+                }
             }
         }
-        
     }
-
-    Ok(())
+    Ok(Data::Cons { name: "directory".into()
+                  , params: vec![Data::String(dir_name), Data::List(directory_data)]
+                  })
 }

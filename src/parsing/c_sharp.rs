@@ -132,7 +132,7 @@ fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
 
     parser!(input => {
         at <= ? parse_at;
-        let at : Option<()> = at;
+        let _at : Option<()> = at;
         word <= parse_word;
         generic <= ? parse_generic;
         select {
