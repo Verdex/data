@@ -21,9 +21,16 @@ macro_rules! opt {
 fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
     opt!(parse_keyword => o_parse_keyword);
     opt!(parse_id => o_parse_id);
+    fn ignore(input : &mut Chars) -> Result<Option<Data>, ParseError> {
+        parser!(input => {
+            _any <= parse_any;
+            select None
+        })
+    }
     fn parse_item(input : &mut Chars) -> Result<Option<Data>, ParseError> {
         alt!(input => o_parse_keyword
                     ; o_parse_id 
+                    ; ignore
                     )
     }
 
@@ -34,7 +41,6 @@ fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
 }
 
 // TODO punctuation
-// TODO literals?
 // TODO <>
 
 pat!(parse_any<'a>: char => char = x => x);
@@ -84,6 +90,42 @@ fn parse_keyword(input : &mut Chars) -> Result<Data, ParseError> {
         word <= parse_word;
         where KEYWORDS.iter().find(|x| ***x == *word).is_some();
         select Data::Cons { name: "keyword".into(), params: vec![Data::String(word)] }
+    })
+}
+
+fn parse_block(input : &mut Chars) -> Result<Data, ParseError> {
+    pat!(parse_l_curl: char => () = '{' => { () });
+    pat!(parse_r_curl: char => () = '}' => { () });
+
+    parser!(input => {
+        _l_curl <= parse_l_curl;
+        items <= * parse_c_sharp;
+        _r_curl <= parse_r_curl;
+        select Data::Cons { name: "block".into(), params: items }
+    })
+}
+
+fn parse_generic(input : &mut Chars) -> Result<Vec<Data>, ParseError> {
+    pat!(parse_l_angle: char => () = '<' => { () });
+    pat!(parse_r_angle: char => () = '>' => { () });
+
+    parser!(input => {
+        _l_angle <= parse_l_angle;
+        items <= * parse_c_sharp;
+        _r_angle <= parse_r_angle;
+        select items
+    })
+}
+
+fn parse_type(input : &mut Chars) -> Result<Data, ParseError> {
+    // TODO unicode escape 
+    pat!(parse_at: char => () = '@' => { () });
+
+    parser!(input => {
+        at <= ? parse_at;
+        let at : Option<()> = at;
+        word <= parse_word;
+        select Data::Cons { name: "type".into(), params: vec![Data::String(word)] }
     })
 }
 
