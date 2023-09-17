@@ -10,7 +10,29 @@ pub fn parse(input : &str) -> Result<Data, Box<str>> {
     Err("!".into())
 }
 
-// TODO keywords
+macro_rules! opt {
+    ($parser : ident => $optional : ident) => {
+        fn $optional(input : &mut Chars) -> Result<Option<Data>, ParseError> {
+            Ok(Some($parser(input)?))
+        }
+    };
+}
+
+fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
+    opt!(parse_keyword => o_parse_keyword);
+    opt!(parse_id => o_parse_id);
+    fn parse_item(input : &mut Chars) -> Result<Option<Data>, ParseError> {
+        alt!(input => o_parse_keyword
+                    ; o_parse_id 
+                    )
+    }
+
+    parser!(input => {
+        items <= * parse_item;
+        select Data::List(items.into_iter().filter_map(|x| x).collect())
+    })
+}
+
 // TODO punctuation
 // TODO literals?
 // TODO <>
