@@ -36,7 +36,7 @@ fn dir_data( dir : PathBuf, dir_name : Box<str> ) -> std::io::Result<Data> {
             // TODO 
             let name : Box<str> = item.file_name().into_string().unwrap().into();
             if let Some(ext) = path.extension() {
-                if ext == ".cs" {
+                if ext == "cs" {
                     let file_input = fs::read_to_string(path)?;
                     let data = parsing::c_sharp::parse(&file_input).unwrap();
                     directory_data.push(

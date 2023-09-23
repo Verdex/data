@@ -10,7 +10,7 @@ pub fn parse(input : &str) -> Result<Data, ()> { // TODO error type?
     let mut input = input.chars();
     let result = parse_c_sharp(&mut input);
     match result {
-        Ok(data) => Ok(data),
+        Ok(data) => Ok(Data::List(data)),
         Err(_) => Err(()), 
     }
 }
@@ -23,7 +23,7 @@ macro_rules! opt {
     };
 }
 
-fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
+fn parse_c_sharp(input : &mut Chars) -> Result<Vec<Data>, ParseError> {
     opt!(parse_keyword => o_parse_keyword);
     opt!(parse_id => o_parse_id);
     opt!(parse_block => o_parse_block);
@@ -39,10 +39,12 @@ fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
             select Some(Data::Symbol("arrow".into()))
         })
     }
-    
+
     fn ignore(input : &mut Chars) -> Result<Option<Data>, ParseError> {
         parser!(input => {
-            _any <= parse_any;
+            any <= parse_any;
+            // TODO if square brackets are added then ']' will need to be added
+            where any != ')' && any != '}';
             select None
         })
     }
@@ -60,7 +62,7 @@ fn parse_c_sharp(input : &mut Chars) -> Result<Data, ParseError> {
 
     parser!(input => {
         items <= * parse_item;
-        select Data::List(items.into_iter().filter_map(|x| x).collect())
+        select items.into_iter().filter_map(|x| x).collect()
     })
 }
 
@@ -108,19 +110,48 @@ fn parse_block(input : &mut Chars) -> Result<Data, ParseError> {
 
     parser!(input => {
         _l_curl <= parse_l_curl;
-        items <= * parse_c_sharp;
+        items <= parse_c_sharp;
         _r_curl <= parse_r_curl;
-        select Data::Cons { name: "block".into(), params: items }
+        select Data::Cons { name: "block".into(), params: vec![Data::List(items)] }
     })
 }
 
-fn parse_generic(input : &mut Chars) -> Result<Vec<Data>, ParseError> {
+fn parse_generic(input : &mut Chars) -> Result<Data, ParseError> {
+
+    fn parse_inside_generic(input : &mut Chars) -> Result<Data, ParseError> {
+        opt!(parse_keyword => o_parse_keyword);
+        opt!(parse_id => o_parse_id);
+        pat!(o_parse_dot: char => Option<Data> = '.' => { Some(Data::Symbol("dot".into()))});
+        pat!(o_parse_colon: char => Option<Data> = ':' => { Some(Data::Symbol("colon".into()))});
+
+        fn ignore(input : &mut Chars) -> Result<Option<Data>, ParseError> {
+            parser!(input => {
+                any <= parse_any;
+                where any != '>';
+                select None
+            })
+        }
+        fn parse_item(input : &mut Chars) -> Result<Option<Data>, ParseError> {
+            alt!(input => o_parse_keyword
+                        ; o_parse_id 
+                        ; o_parse_dot
+                        ; o_parse_colon
+                        ; ignore
+                        )
+        }
+
+        parser!(input => {
+            items <= * parse_item;
+            select Data::List(items.into_iter().filter_map(|x| x).collect())
+        })
+    }
+
     pat!(parse_l_angle: char => () = '<' => { () });
     pat!(parse_r_angle: char => () = '>' => { () });
 
     parser!(input => {
         _l_angle <= parse_l_angle;
-        items <= * parse_c_sharp;
+        items <= parse_inside_generic;
         _r_angle <= parse_r_angle;
         select items
     })
@@ -139,7 +170,7 @@ fn parse_id(input : &mut Chars) -> Result<Data, ParseError> {
             let mut params = vec![];
             params.push(Data::Cons { name: "name".into(), params: vec![Data::String(word)] });
             if let Some(generic) = generic {
-                params.push(Data::Cons { name: "generic".into(), params: generic });
+                params.push(Data::Cons { name: "generic".into(), params: vec![generic] });
             }
             Data::Cons { name: "id".into(), params: vec![Data::List(params)] }
         }
@@ -152,9 +183,9 @@ fn parse_paren(input : &mut Chars) -> Result<Data, ParseError> {
 
     parser!(input => {
         _l_paren <= parse_l_paren;
-        items <= * parse_c_sharp;
+        items <= parse_c_sharp;
         _r_paren <= parse_r_paren;
-        select Data::Cons { name: "paren".into(), params: items }
+        select Data::Cons { name: "paren".into(), params: vec![Data::List(items)] }
     })
 }
 
@@ -302,5 +333,4 @@ mod test {
 
         assert_eq!( results.len(), 1 );
     }
-
 }
